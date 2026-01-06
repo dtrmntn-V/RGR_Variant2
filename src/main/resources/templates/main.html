@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <title>Туристична База Даних</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; max-width: 1000px; margin: 20px auto; padding: 20px; background-color: #f4f7f6; }
+        h1, h2 { color: #2c3e50; }
+
+        /* Стилі повідомлень */
+        .error { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 5px; margin-top: 20px; }
+        .success { color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin-top: 20px; }
+
+        /* Таблиці */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+
+        /* Верхня панель користувача */
+        .user-info { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;}
+        .role-badge { padding: 5px 10px; border-radius: 15px; font-weight: bold; font-size: 0.9em; }
+        .role-admin { background-color: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+        .role-user { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+
+        /* Підказки та код */
+        code { background: #eee; padding: 2px 5px; border-radius: 3px; font-family: monospace; color: #d63384; font-size: 1.1em; }
+        .hints { background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #ffc107; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+
+        /* Форма */
+        textarea { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-family: monospace; resize: vertical; }
+        button.execute-btn { padding: 10px 25px; margin-top: 10px; cursor: pointer; background-color: #28a745; color: white; border: none; border-radius: 5px; font-size: 16px; transition: 0.3s; }
+        button.execute-btn:hover { background-color: #218838; }
+        button.logout-btn { background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+        button.logout-btn:hover { background: #5a6268; }
+    </style>
+</head>
+<body>
+
+<div class="user-info">
+    <div>
+        Ви увійшли як: <b><span sec:authentication="name">User</span></b>
+
+        <span sec:authorize="hasRole('ADMIN')" class="role-badge role-admin">ADMIN (Повний доступ)</span>
+        <span sec:authorize="!hasRole('ADMIN')" class="role-badge role-user">USER (Тільки перегляд)</span>
+    </div>
+
+    <form th:action="@{/logout}" method="post" style="margin: 0;">
+        <button type="submit" class="logout-btn">Вийти</button>
+    </form>
+</div>
+
+<h1>Система управління турами</h1>
+
+<div class="hints">
+    <h3>Доступні команди:</h3>
+
+    <p><em>Перегляд даних (доступно всім):</em><br>
+        <code>SELECT * FROM hotel</code> або <code>SELECT * FROM country</code></p>
+
+    <div sec:authorize="hasRole('ADMIN')">
+        <hr>
+        <strong>Редагування (Тільки Admin):</strong><br><br>
+
+        <em>1. Додавання (Спеціальний синтаксис):</em><br>
+        <code>insert country (name='Франція')</code><br>
+        <code>insert resort (name='Ніцца', country_id='ID_КРАЇНИ')</code><br>
+        <code>insert hotel (name='Negresco', resort_id='ID_КУРОРТУ')</code><br><br>
+
+        <em>2. SQL видалення:</em><br>
+        <code>DELETE FROM hotel WHERE id = 1</code>
+    </div>
+
+    <div sec:authorize="!hasRole('ADMIN')" style="color: gray; margin-top: 10px; font-style: italic;">
+        * Функції додавання (INSERT), оновлення (UPDATE) та видалення (DELETE) заблоковані для вашого акаунту.
+    </div>
+</div>
+
+<form action="/execute" method="post">
+    <input type="hidden" th:if="${_csrf}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+
+    <label for="command"><strong>Введіть SQL-запит:</strong></label><br>
+    <textarea id="command" name="command" rows="4" placeholder="Наприклад: SELECT * FROM country"></textarea><br>
+    <button type="submit" class="execute-btn">Виконати запит</button>
+</form>
+
+<div th:if="${error}" class="error">
+    <strong>Помилка:</strong> <span th:text="${error}"></span>
+</div>
+
+<div th:if="${message}" class="success">
+    <span th:text="${message}"></span>
+</div>
+
+<div th:if="${queryResult}">
+    <h3>Результат вашого запиту:</h3>
+    <table>
+        <thead>
+        <tr th:if="${not #lists.isEmpty(queryResult)}">
+            <th th:each="entry : ${queryResult[0]}" th:text="${entry.key}">Column</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="row : ${queryResult}">
+            <td th:each="entry : ${row}" th:text="${entry.value}">Value</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<hr style="margin: 40px 0;">
+
+<div>
+    <h2>Поточний стан бази даних (Ієрархія)</h2>
+    <p style="color: #666; font-size: 0.9em;">Таблиця відображає зв'язки: Country -> Resort -> Hotel</p>
+
+    <table th:if="${not #lists.isEmpty(treeData)}">
+        <thead>
+        <tr>
+            <th>ID Країни</th>
+            <th>Країна</th>
+            <th>ID Курорту</th>
+            <th>Курорт</th>
+            <th>ID Готелю</th>
+            <th>Готель</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="row : ${treeData}">
+            <td th:text="${row['c_id']}">1</td> <td th:text="${row['country']}" style="font-weight: bold;">Україна</td> <td th:text="${row['r_id']}">5</td> <td th:text="${row['resort']}">Буковель</td> <td th:text="${row['h_id']}">10</td> <td th:text="${row['hotel']}">Radisson</td> </tr>
+        </tbody>
+    </table>
+
+    <div th:if="${#lists.isEmpty(treeData)}" style="text-align: center; color: gray; padding: 20px;">
+        <em>База даних порожня або дані відсутні.</em>
+    </div>
+</div>
+
+</body>
+</html>
